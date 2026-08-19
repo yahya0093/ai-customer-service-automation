@@ -210,7 +210,25 @@ The goal of this project was to build a customer service system where AI is not 
 **Understand → Collect → Validate → Escalate → Track → Resolve → Follow Up**
 
 ---
+## 🖼️ Workflow Screenshots
+
+### Main Workflow — Part 1
+<img width="675" height="711" alt="image" src="https://github.com/user-attachments/assets/11529db9-7c40-409d-b2d1-07b960ca5382" /> 
+
+### Main Workflow — Part 2
+<img width="1074" height="574" alt="image" src="https://github.com/user-attachments/assets/44994fe8-79f6-4b60-9db9-b7334fb35ab6" />
+
+### Main Workflow — Part 3
+<img width="992" height="731" alt="image" src="https://github.com/user-attachments/assets/d382d874-84bd-475e-986c-fb272e77c239" />
+
+### Department Resolution Workflow
+<img width="1559" height="727" alt="image" src="https://github.com/user-attachments/assets/70ffe408-e395-47fc-9002-b49a682a9583" />
 
 ### Built by Yahya Zakaria
 
 **AI Specialist | AI Agents | n8n Automation | Machine Learning**
+
+
+
+
+
