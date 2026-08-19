@@ -1,0 +1,1744 @@
+{
+  "name": "Department Resolution Follow-Up - Portfolio",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "freshdesk-resolution",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -288,
+        -272
+      ],
+      "id": "a45d9907-6857-443e-bd63-fd2546a9814a",
+      "name": "Receive Freshdesk Resolution"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c9708c89-1d96-4779-b2ed-458677fb47c0",
+              "name": "ticket_id ",
+              "value": "={{ $json.ticket_id }}",
+              "type": "string"
+            },
+            {
+              "id": "cadbbff8-e397-448d-8d2a-8134f7532f9e",
+              "name": "issue_id ",
+              "value": "={{ $json.issue_id }}",
+              "type": "string"
+            },
+            {
+              "id": "c768306b-49d8-4c1d-be14-20ddc07a1e18",
+              "name": "conversation_id ",
+              "value": "={{ $json.conversation_id }}",
+              "type": "string"
+            },
+            {
+              "id": "faeb75be-73ff-486e-89f3-7652d6bdd728",
+              "name": "conversation_internal_id ",
+              "value": "={{ $json.conversation_internal_id }}",
+              "type": "string"
+            },
+            {
+              "id": "8b7374e8-31cd-4a6f-bd32-0936269858aa",
+              "name": "issue_description ",
+              "value": "={{ $json.issue_description }}",
+              "type": "string"
+            },
+            {
+              "id": "08194ebe-5507-4aa7-b2e7-8e45d3ddb50e",
+              "name": "ticket_type ",
+              "value": "={{ $json[\"ticket_type\\n\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "049d0ad3-23ac-41bd-97d0-dce5910c4a86",
+              "name": "resolution_note ",
+              "value": "={{ $('Receive Freshdesk Resolution').item.json.body.resolution_note }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        912,
+        -848
+      ],
+      "id": "38ee27d9-7b13-4fa0-a8b8-1d25c40eb9bf",
+      "name": "Prepare Resolution for AI"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=نوع التذكرة:\n{{ $json['ticket_type '] }}\nوصف طلب/مشكلة العميل:\n{{ $json['issue_description '] }}\nرد القسم المختص:\n{{ $json['resolution_note '] }}",
+        "options": {
+          "systemMessage": "You are a customer-facing resolution assistant for a demo customer service system.\n\nYou receive:\n- ticket_type\n- issue_description\n- resolution_note\n\nYour job:\n1. Understand the customer's original issue.\n2. Understand the approved internal resolution.\n3. Convert the internal resolution into a short, clear customer-facing message.\n4. Ask for the next required customer action only when necessary.\n5. Never expose internal notes, ticketing systems, workflows, credentials, or private data.\n6. Never invent compensation, dates, promises, or actions that were not approved.\n\nUse concise, professional customer-service language.\n\nReturn ONLY the message that should be sent to the customer.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1088,
+        -848
+      ],
+      "id": "e7c698fa-264c-405f-9de2-05b0ae72f228",
+      "name": "Rewrite Resolution for Customer"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "gpt-5-nano"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1008,
+        -656
+      ],
+      "id": "85950597-d5cf-42a8-b262-01e34cdd86ca",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_OPENAI_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_FRESHCHAT_DOMAIN.freshchat.com/v2/conversations/{{ $('Prepare Resolution for AI').item.json['conversation_id '] }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_FRESHCHAT_API_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "ASSUME-IDENTITY",
+              "value": "false"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message_parts\": [\n    {\n      \"text\": {\n        \"content\": {{ JSON.stringify($('Rewrite Resolution for Customer').item.json.output) }}\n      }\n    }\n  ],\n  \"message_type\": \"normal\",\n  \"actor_type\": \"bot\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2128,
+        -1072
+      ],
+      "id": "42021b43-2816-45da-8a65-10953b3a8e0c",
+      "name": "Send Resolution to Customer"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Customer Service State Store",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID",
+          "mode": "list",
+          "cachedResultName": "Issue State",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "issue_id": "={{ $('Prepare Resolution for AI').item.json['issue_id '] }}",
+            "status": "=awaiting_customer_reply",
+            "is_active": "={{ true }}",
+            "updated_at": "={{ $now.setZone('Asia/Riyadh').toFormat('yyyy-MM-dd HH:mm:ss') }}",
+            "resolution_message_sent": "={{ $('Rewrite Resolution for Customer').item.json.output }}",
+            "department_resolution": "={{ $('Prepare Resolution for AI').item.json['resolution_note '] }}"
+          },
+          "matchingColumns": [
+            "issue_id"
+          ],
+          "schema": [
+            {
+              "id": "issue_id",
+              "displayName": "issue_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "conversation_id",
+              "displayName": "conversation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "conversation_internal_id",
+              "displayName": "conversation_internal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "customer_phone",
+              "displayName": "customer_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "order_number",
+              "displayName": "order_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "order_phone",
+              "displayName": "order_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "issue_description",
+              "displayName": "issue_description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "image_urls",
+              "displayName": "image_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_active",
+              "displayName": "is_active",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ticket_type\n",
+              "displayName": "ticket_type\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "level_1\n",
+              "displayName": "level_1\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "level_2\n",
+              "displayName": "level_2\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "level_3\n",
+              "displayName": "level_3\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "department_resolution",
+              "displayName": "department_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resolution_message_sent",
+              "displayName": "resolution_message_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is_final_resolution",
+              "displayName": "is_final_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2320,
+        -1072
+      ],
+      "id": "d7b85c19-c8ff-486b-8e54-1a956fbfd93d",
+      "name": "Mark Issue Awaiting Customer Reply",
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.ticket_status }}",
+                    "rightValue": "=Resolved",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ac970532-8940-4b5a-85c9-9beae5b7a2e5"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Resolved"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1fee1fef-c363-44d1-913e-313c8a23d961",
+                    "leftValue": "={{ $json.body.ticket_status }}",
+                    "rightValue": "Closed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Closed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -48,
+        -272
+      ],
+      "id": "c42ee073-7e09-451e-a1ce-14acb2af70ee",
+      "name": "Route Freshdesk Ticket Status"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Customer Service State Store",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID",
+          "mode": "list",
+          "cachedResultName": "Issue State",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $json.body.ticket_id }}",
+            "status": "resolved",
+            "is_active": "false",
+            "updated_at": "={{ $now.setZone('Asia/Riyadh').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [
+            "ticket_id"
+          ],
+          "schema": [
+            {
+              "id": "issue_id",
+              "displayName": "issue_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "conversation_id",
+              "displayName": "conversation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "conversation_internal_id",
+              "displayName": "conversation_internal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "customer_phone",
+              "displayName": "customer_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "order_number",
+              "displayName": "order_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "order_phone",
+              "displayName": "order_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "issue_description",
+              "displayName": "issue_description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "image_urls",
+              "displayName": "image_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_active",
+              "displayName": "is_active",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ticket_type\n",
+              "displayName": "ticket_type\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "level_1\n",
+              "displayName": "level_1\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "level_2\n",
+              "displayName": "level_2\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "level_3\n",
+              "displayName": "level_3\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "department_resolution",
+              "displayName": "department_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "resolution_message_sent",
+              "displayName": "resolution_message_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "is_final_resolution",
+              "displayName": "is_final_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        256,
+        -96
+      ],
+      "id": "0481606c-36a1-49cd-a59c-284d2a428143",
+      "name": "Close Issue After Freshdesk Closed",
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "=المشكلة أو الطلب الأصلي:\n{{ $json.issue_description }}\n\nآخر حل تم إرساله للعميل:\n{{ $json.resolution_message_sent }}\n\nآخر تحديث من القسم المختص:\n{{ $('Receive Freshdesk Resolution').first().json.body.resolution_note }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "customer_facing_resolution",
+              "description": "Choose when the latest internal update contains a new approved customer-facing resolution or asks the customer to provide information, confirmation, a selection, an image, or another action."
+            },
+            {
+              "category": "internal_operational_update",
+              "description": "Choose when the latest update is only internal operational progress, assignment, handoff, or execution status and does not contain a new customer-facing decision."
+            },
+            {
+              "category": "final_customer_facing_resolution",
+              "description": "Choose when the latest update contains an explicitly final customer-facing decision that should be communicated without further negotiation."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        464,
+        -496
+      ],
+      "id": "26c018f4-bfcd-4270-84c9-313511a2fae5",
+      "name": "Classify Freshdesk Resolved Update"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "gpt-5-nano"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        384,
+        -304
+      ],
+      "id": "0b167369-54c6-44d0-a823-3de62d46b0ef",
+      "name": "OpenAI Chat Model4",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_OPENAI_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c9708c89-1d96-4779-b2ed-458677fb47c0",
+              "name": "ticket_id ",
+              "value": "={{ $json.ticket_id }}",
+              "type": "string"
+            },
+            {
+              "id": "cadbbff8-e397-448d-8d2a-8134f7532f9e",
+              "name": "issue_id ",
+              "value": "={{ $json.issue_id }}",
+              "type": "string"
+            },
+            {
+              "id": "c768306b-49d8-4c1d-be14-20ddc07a1e18",
+              "name": "conversation_id ",
+              "value": "={{ $json.conversation_id }}",
+              "type": "string"
+            },
+            {
+              "id": "faeb75be-73ff-486e-89f3-7652d6bdd728",
+              "name": "conversation_internal_id ",
+              "value": "={{ $json.conversation_internal_id }}",
+              "type": "string"
+            },
+            {
+              "id": "8b7374e8-31cd-4a6f-bd32-0936269858aa",
+              "name": "issue_description ",
+              "value": "={{ $json.issue_description }}",
+              "type": "string"
+            },
+            {
+              "id": "08194ebe-5507-4aa7-b2e7-8e45d3ddb50e",
+              "name": "ticket_type ",
+              "value": "={{ $json[\"ticket_type\\n\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "049d0ad3-23ac-41bd-97d0-dce5910c4a86",
+              "name": "resolution_note ",
+              "value": "={{ $('Receive Freshdesk Resolution').item.json.body.resolution_note }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        -176
+      ],
+      "id": "4594c068-25d5-494c-9943-4ea33e4e574f",
+      "name": "Prepare Final Resolution for AI"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "gpt-5-nano"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1040,
+        16
+      ],
+      "id": "a92e3e31-8c82-464a-99a8-5bf18c0d023e",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_OPENAI_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=نوع التذكرة:\n{{ $json['ticket_type '] }}\nوصف طلب/مشكلة العميل:\n{{ $json['issue_description '] }}\nرد القسم المختص:\n{{ $json['resolution_note '] }}",
+        "options": {
+          "systemMessage": "You are a customer-facing FINAL resolution assistant for a demo customer service system.\n\nYou receive:\n- ticket_type\n- issue_description\n- resolution_note\n\nThe resolution has already been classified as final.\n\nYour job:\n1. Communicate the approved final decision clearly and respectfully.\n2. Do not change, negotiate, increase, decrease, or invent the approved solution.\n3. If the approved resolution still requires a customer action, clearly ask for that next step.\n4. Never expose internal systems, notes, workflows, credentials, or private data.\n\nReturn ONLY the exact customer-facing message.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1104,
+        -176
+      ],
+      "id": "b96017c7-1210-42ee-a1fc-a99ef9dae2ee",
+      "name": "Rewrite Final Resolution for Customer"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_FRESHCHAT_DOMAIN.freshchat.com/v2/conversations/{{ $('Prepare Final Resolution for AI').item.json['conversation_id '] }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_FRESHCHAT_API_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "ASSUME-IDENTITY",
+              "value": "false"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message_parts\": [\n    {\n      \"text\": {\n        \"content\": {{ JSON.stringify($('Rewrite Final Resolution for Customer').item.json.output) }}\n      }\n    }\n  ],\n  \"message_type\": \"normal\",\n  \"actor_type\": \"bot\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2128,
+        -384
+      ],
+      "id": "f171c4de-a336-4f80-8a73-a22e9dcd7062",
+      "name": "Send Final Resolution to Customer"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Customer Service State Store",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID",
+          "mode": "list",
+          "cachedResultName": "Issue State",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "issue_id": "={{ $('Prepare Final Resolution for AI').item.json['issue_id '] }}",
+            "status": "=awaiting_customer_reply",
+            "is_active": "={{ true }}",
+            "updated_at": "={{ $now.setZone('Asia/Riyadh').toFormat('yyyy-MM-dd HH:mm:ss') }}",
+            "resolution_message_sent": "={{ $('Rewrite Final Resolution for Customer').item.json.output }}",
+            "department_resolution": "={{ $('Prepare Final Resolution for AI').item.json['resolution_note '] }}",
+            "is_final_resolution": "={{ true }}"
+          },
+          "matchingColumns": [
+            "issue_id"
+          ],
+          "schema": [
+            {
+              "id": "issue_id",
+              "displayName": "issue_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "conversation_id",
+              "displayName": "conversation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "conversation_internal_id",
+              "displayName": "conversation_internal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "customer_phone",
+              "displayName": "customer_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "order_number",
+              "displayName": "order_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "order_phone",
+              "displayName": "order_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "issue_description",
+              "displayName": "issue_description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "image_urls",
+              "displayName": "image_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_active",
+              "displayName": "is_active",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ticket_type\n",
+              "displayName": "ticket_type\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "level_1\n",
+              "displayName": "level_1\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "level_2\n",
+              "displayName": "level_2\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "level_3\n",
+              "displayName": "level_3\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "department_resolution",
+              "displayName": "department_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resolution_message_sent",
+              "displayName": "resolution_message_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is_final_resolution",
+              "displayName": "is_final_resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2336,
+        -384
+      ],
+      "id": "6428c93c-a2f7-485e-885a-cc347bf9cc2b",
+      "name": "Mark Final Resolution Awaiting Customer Reply",
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Customer Service State Store",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID",
+          "mode": "list",
+          "cachedResultName": "Issue State",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "ticket_id",
+              "lookupValue": "={{ $json.body.ticket_id }}"
+            },
+            {
+              "lookupColumn": "is_active",
+              "lookupValue": "={{ true }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        256,
+        -480
+      ],
+      "id": "98b4955e-e49c-4576-9077-8122a73f9476",
+      "name": "Find Active Issue by Ticket ID",
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// كل رسائل المحادثة\nconst messages = Array.isArray(data.messages)\n  ? data.messages\n  : [];\n\n// نأخذ فقط الرسائل التي كتبها العميل\nconst customerMessages = messages.filter(message =>\n  message.actor_type === 'user' &&\n  message.created_time\n);\n\n// إذا لم نجد أي رسالة من العميل\nif (customerMessages.length === 0) {\n  return [\n    {\n      json: {\n        last_customer_message: null,\n        last_customer_message_time: null,\n        hours_since_customer_message: null,\n        within_24h: false,\n        reason: 'no_customer_message_found'\n      }\n    }\n  ];\n}\n\n// ترتيب رسائل العميل من الأحدث إلى الأقدم\ncustomerMessages.sort((a, b) =>\n  new Date(b.created_time).getTime() -\n  new Date(a.created_time).getTime()\n);\n\n// أحدث رسالة من العميل\nconst lastCustomerMessage = customerMessages[0];\n\n// استخراج نص الرسالة\nconst lastCustomerMessageText = (lastCustomerMessage.message_parts || [])\n  .map(part => part?.text?.content)\n  .filter(Boolean)\n  .join('\\n');\n\n// حساب كم ساعة مرت\nconst lastMessageTime = new Date(lastCustomerMessage.created_time).getTime();\nconst now = Date.now();\n\nconst hoursSinceCustomerMessage =\n  (now - lastMessageTime) / (1000 * 60 * 60);\n\n// هل ما زلنا داخل نافذة الـ 24 ساعة؟\nconst within24h = hoursSinceCustomerMessage < 24;\n\nreturn [\n  {\n    json: {\n      last_customer_message: lastCustomerMessageText || null,\n      last_customer_message_time: lastCustomerMessage.created_time,\n\n      hours_since_customer_message:\n        Number(hoursSinceCustomerMessage.toFixed(2)),\n\n      within_24h: within24h,\n\n      last_customer_message_id: lastCustomerMessage.id || null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        -848
+      ],
+      "id": "8caad2d3-1847-4775-8046-4f5298e11c6b",
+      "name": "Evaluate WhatsApp 24h Window"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// كل رسائل المحادثة\nconst messages = Array.isArray(data.messages)\n  ? data.messages\n  : [];\n\n// نأخذ فقط الرسائل التي كتبها العميل\nconst customerMessages = messages.filter(message =>\n  message.actor_type === 'user' &&\n  message.created_time\n);\n\n// إذا لم نجد أي رسالة من العميل\nif (customerMessages.length === 0) {\n  return [\n    {\n      json: {\n        last_customer_message: null,\n        last_customer_message_time: null,\n        hours_since_customer_message: null,\n        within_24h: false,\n        reason: 'no_customer_message_found'\n      }\n    }\n  ];\n}\n\n// ترتيب رسائل العميل من الأحدث إلى الأقدم\ncustomerMessages.sort((a, b) =>\n  new Date(b.created_time).getTime() -\n  new Date(a.created_time).getTime()\n);\n\n// أحدث رسالة من العميل\nconst lastCustomerMessage = customerMessages[0];\n\n// استخراج نص الرسالة\nconst lastCustomerMessageText = (lastCustomerMessage.message_parts || [])\n  .map(part => part?.text?.content)\n  .filter(Boolean)\n  .join('\\n');\n\n// حساب كم ساعة مرت\nconst lastMessageTime = new Date(lastCustomerMessage.created_time).getTime();\nconst now = Date.now();\n\nconst hoursSinceCustomerMessage =\n  (now - lastMessageTime) / (1000 * 60 * 60);\n\n// هل ما زلنا داخل نافذة الـ 24 ساعة؟\nconst within24h = hoursSinceCustomerMessage < 24;\n\nreturn [\n  {\n    json: {\n      last_customer_message: lastCustomerMessageText || null,\n      last_customer_message_time: lastCustomerMessage.created_time,\n\n      hours_since_customer_message:\n        Number(hoursSinceCustomerMessage.toFixed(2)),\n\n      within_24h: within24h,\n\n      last_customer_message_id: lastCustomerMessage.id || null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        -176
+      ],
+      "id": "00330882-f5f0-42dd-ab07-8a7ffe76d82e",
+      "name": "Evaluate WhatsApp 24h Window1"
+    },
+    {
+      "parameters": {
+        "url": "=https://YOUR_FRESHCHAT_DOMAIN.freshchat.com/v2/conversations/{{ $('Prepare Resolution for AI').item.json['conversation_id '] }}/messages",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "page",
+              "value": "1"
+            },
+            {
+              "name": "items_per_page ",
+              "value": "=50"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_FRESHCHAT_API_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "ASSUME-IDENTITY",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1472,
+        -848
+      ],
+      "id": "7cf77fe1-c0cb-4958-bfd0-5582d0112c41",
+      "name": "Get Conversation Messages Before Resolution"
+    },
+    {
+      "parameters": {
+        "url": "=https://YOUR_FRESHCHAT_DOMAIN.freshchat.com/v2/conversations/{{ $('Prepare Final Resolution for AI').item.json['conversation_id '] }}/messages",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "page",
+              "value": "1"
+            },
+            {
+              "name": "items_per_page ",
+              "value": "=50"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_FRESHCHAT_API_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "ASSUME-IDENTITY",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1472,
+        -176
+      ],
+      "id": "8d419f1e-2708-45fe-822b-50b997276564",
+      "name": "Get Conversation Messages Before Resolution1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7cd7a0c3-3f8f-4bc8-b141-0398bd3edb1c",
+              "leftValue": "={{ $json.within_24h }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1904,
+        -848
+      ],
+      "id": "13f7597b-7222-4e6f-bd42-937df8107993",
+      "name": "Is WhatsApp Window Open?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7cd7a0c3-3f8f-4bc8-b141-0398bd3edb1c",
+              "leftValue": "={{ $json.within_24h }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1904,
+        -176
+      ],
+      "id": "56d1c09b-a741-4280-a8c7-b7bcadd13387",
+      "name": "Is WhatsApp Window Open?1"
+    },
+    {
+      "parameters": {
+        "sendTo": "support@example.com",
+        "subject": "=مطلوب اتصال بالعميل - Ticket {{ $('Prepare Resolution for AI').item.json['ticket_id '] }}\n",
+        "message": "=تعذر إرسال الحل للعميل عبر واتساب لأن آخر رسالة من العميل مضى عليها أكثر من 24 ساعة.\n\nرقم العميل:\n{{ $('Find Active Issue by Ticket ID').item.json.customer_phone }}\n\nرقم التذكرة:\n{{ $('Prepare Resolution for AI').item.json['ticket_id '] }}\n\nالمشكلة:\n{{ $('Prepare Resolution for AI').item.json['issue_description '] }}\n\nالحل المعتمد:\n{{ $('Rewrite Resolution for Customer').item.json.output }}\n\nآخر رسالة من العميل:\n{{ $('Evaluate WhatsApp 24h Window').item.json.last_customer_message }}\n\nوقت آخر رسالة من العميل:\n{{ $('Evaluate WhatsApp 24h Window').item.json.last_customer_message_time }}\n\nيرجى الاتصال بالعميل هاتفيًا وإبلاغه بالحل المعتمد ومتابعة الإجراء.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2128,
+        -656
+      ],
+      "id": "ad0db661-eba5-45cf-a50d-a5e8c4cb8755",
+      "name": "Notify CS - WhatsApp Window Expired",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "YOUR_GMAIL_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "support@example.com",
+        "subject": "=مطلوب اتصال بالعميل - Ticket {{ $('Prepare Final Resolution for AI').item.json['ticket_id '] }}",
+        "message": "=تعذر إرسال القرار النهائي للعميل عبر واتساب لأن آخر رسالة من العميل مضى عليها أكثر من 24 ساعة.\n\nرقم العميل:\n{{ $('Find Active Issue by Ticket ID').item.json.customer_phone }}\n\nرقم التذكرة:\n{{ $('Prepare Final Resolution for AI').item.json['ticket_id '] }}\n\nالمشكلة:\n{{ $('Prepare Final Resolution for AI').item.json['issue_description '] }}\n\nالقرار النهائي المعتمد:\n{{ $('Rewrite Final Resolution for Customer').item.json.output }}\n\nآخر رسالة من العميل:\n{{ $('Evaluate WhatsApp 24h Window1').item.json.last_customer_message }}\n\nوقت آخر رسالة من العميل:\n{{ $('Evaluate WhatsApp 24h Window1').item.json.last_customer_message_time }}\n\nيرجى الاتصال بالعميل هاتفيًا وإبلاغه بالقرار النهائي المعتمد ومتابعة الإجراء.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2144,
+        32
+      ],
+      "id": "63d63312-e733-45d4-a3b6-ce1cf9908ca1",
+      "name": "Notify CS - WhatsApp Window Expired1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "YOUR_GMAIL_CREDENTIAL"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Freshdesk Resolution": {
+      "main": [
+        [
+          {
+            "node": "Route Freshdesk Ticket Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Resolution for AI": {
+      "main": [
+        [
+          {
+            "node": "Rewrite Resolution for Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Rewrite Resolution for Customer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite Resolution for Customer": {
+      "main": [
+        [
+          {
+            "node": "Get Conversation Messages Before Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Resolution to Customer": {
+      "main": [
+        [
+          {
+            "node": "Mark Issue Awaiting Customer Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Freshdesk Ticket Status": {
+      "main": [
+        [
+          {
+            "node": "Find Active Issue by Ticket ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Close Issue After Freshdesk Closed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify Freshdesk Resolved Update",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Freshdesk Resolved Update": {
+      "main": [
+        [
+          {
+            "node": "Prepare Resolution for AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "Prepare Final Resolution for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Rewrite Final Resolution for Customer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Final Resolution for AI": {
+      "main": [
+        [
+          {
+            "node": "Rewrite Final Resolution for Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite Final Resolution for Customer": {
+      "main": [
+        [
+          {
+            "node": "Get Conversation Messages Before Resolution1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Final Resolution to Customer": {
+      "main": [
+        [
+          {
+            "node": "Mark Final Resolution Awaiting Customer Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Active Issue by Ticket ID": {
+      "main": [
+        [
+          {
+            "node": "Classify Freshdesk Resolved Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate WhatsApp 24h Window": {
+      "main": [
+        [
+          {
+            "node": "Is WhatsApp Window Open?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate WhatsApp 24h Window1": {
+      "main": [
+        [
+          {
+            "node": "Is WhatsApp Window Open?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation Messages Before Resolution": {
+      "main": [
+        [
+          {
+            "node": "Evaluate WhatsApp 24h Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation Messages Before Resolution1": {
+      "main": [
+        [
+          {
+            "node": "Evaluate WhatsApp 24h Window1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is WhatsApp Window Open?": {
+      "main": [
+        [
+          {
+            "node": "Send Resolution to Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify CS - WhatsApp Window Expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is WhatsApp Window Open?1": {
+      "main": [
+        [
+          {
+            "node": "Send Final Resolution to Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify CS - WhatsApp Window Expired1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
